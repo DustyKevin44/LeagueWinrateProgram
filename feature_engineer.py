@@ -2,12 +2,12 @@ import pandas as pd
 
 class FeatureEngineerBase:
     """Abstract base class for feature engineering"""
-    def fit_transform(self, match_stats: pd.DataFrame, team_stats: pd.DataFrame, summoner_match: pd.DataFrame):
+    def fit_transform(self, match_stats: pd.DataFrame, team_stats: pd.DataFrame, summoner_match: pd.DataFrame, match_tbl: pd.DataFrame):
         raise NotImplementedError
 
 class DefaultFeatureEngineer(FeatureEngineerBase):
     """Aggregates player stats per team and computes differences for blue vs red"""
-    def fit_transform(self, match_stats, team_stats, summoner_match):
+    def fit_transform(self, match_stats, team_stats, summoner_match, match_tbl):
         # Merge match stats with summoner_match to get MatchID
         match_stats = match_stats.merge(
             summoner_match[['SummonerMatchId','MatchFk','ChampionFk']],
@@ -23,6 +23,14 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
                         'RedBaronKills','RedDragonKills','RedTowerKills','RedKills',
                         'BlueWin','RedWin']],
             left_on='MatchFk', right_on='MatchFk', how='left'
+        )
+        
+        # Merge with match_tbl to get GameDuration
+        # match_tbl has MatchId, match_stats has MatchFk
+        match_stats = match_stats.merge(
+            match_tbl[['MatchId', 'GameDuration']],
+            left_on='MatchFk', right_on='MatchId',
+            how='left'
         )
 
         # Assign team BLUE or RED
@@ -63,11 +71,23 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
         df['dragon_diff'] = blue['DragonKills'] - red['DragonKills']
         df['baron_diff'] = blue['BaronKills'] - red['BaronKills']
         df['tower_diff'] = team_stats.set_index('MatchFk')['BlueTowerKills'] - team_stats.set_index('MatchFk')['RedTowerKills']
-        df['game_duration'] = match_stats.set_index('MatchFk')['GameDuration'] if 'GameDuration' in match_stats.columns else 0
+        
+        # Game Duration
+        # We can take it from match_stats (which now has it merged)
+        # Since it's the same for all rows in a match, we can just take the first one per match
+        # Or simpler: use the merged column from match_stats. But match_stats is long (per player).
+        # We need it per match.
+        # Let's use match_tbl directly indexed by MatchId
+        df['game_duration'] = match_tbl.set_index('MatchId')['GameDuration']
+        
         df['blue_win'] = team_stats.set_index('MatchFk')['BlueWin']
 
         # Drop rows with missing target/features
         df = df.dropna(subset=['blue_win'])
+        
+        # Fill other NaNs with 0 (e.g. if some diffs are missing)
+        df = df.fillna(0)
+        
         features = ['kill_diff','death_diff','assist_diff','gold_diff','cs_diff',
                     'dmg_dealt_diff','dmg_taken_diff','dragon_diff','baron_diff',
                     'tower_diff','game_duration']
