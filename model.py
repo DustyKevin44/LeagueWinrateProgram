@@ -32,8 +32,8 @@ class RandomForestWinModel(ModelBase):
         # - Different feature importance at different game states
         # - Automatically ignores features when they're not informative (e.g., tower_diff=0 early game)
         self.model = RandomForestClassifier(
-            n_estimators=300,
-            max_depth=20,
+            n_estimators=50,
+            max_depth=10,
             min_samples_split=20,
             min_samples_leaf=10,
             random_state=42,
