@@ -16,41 +16,20 @@ class WinProbabilityInterface:
 
     def predict(self, **kwargs):
         data = {}
-        defaults_used = {}
-        
-        # Slopes estimated from data (y = mx + b, approx b=0 for diffs)
-        # These allow us to infer likely state from gold_diff if other stats are missing
-        SLOPES = {
-            'kill_diff': 0.000614,
-            'cs_diff': 0.007751,
-            'tower_diff': 0.000047,
-            'assist_diff': 0.001,
-            'dragon_diff': 0.00005,
-            'baron_diff': 0.00001
-        }
-        
-        # Check if gold_diff is provided
-        gold_diff = kwargs.get('gold_diff', 0)
         
         for f in FEATURES:
-            if f in kwargs:
-                data[f] = kwargs[f]
-            else:
-                if f == 'game_duration':
-                    # Use reasonable default (25 mins = 1500s)
-                    data[f] = 1500
-                elif f in SLOPES and gold_diff != 0:
-                    # Impute based on gold_diff
-                    data[f] = gold_diff * SLOPES[f]
-                else:
-                    # Default to 0
-                    data[f] = 0
-                
-                defaults_used[f] = data[f]
+            data[f] = kwargs.get(f, 0)
 
-        df = pd.DataFrame([data])
+        # Hybrid approach: Use heuristic for early game, model for mid/late game
+        tower_diff = data.get('tower_diff', 0)
+        game_time = data.get('game_duration', 0)
         
-        # Ensure column order matches FEATURES
+        # Early game (no towers down yet): Use simple heuristic
+        if tower_diff == 0 and game_time < 600:  # Before 10 minutes and no towers
+            return self._early_game_heuristic(data)
+        
+        # Mid/Late game: Use Random Forest model
+        df = pd.DataFrame([data])
         df = df[FEATURES]
         
         try:
@@ -59,4 +38,37 @@ class WinProbabilityInterface:
             print(f"Error predicting: {e}")
             return 0.5
 
+        return prob
+    
+    def _early_game_heuristic(self, data):
+        """
+        Simple heuristic for early game before first tower falls.
+        Focuses on gold, kills, and CS since towers haven't become important yet.
+        """
+        # Base probability
+        base_prob = 0.5
+        
+        # Gold advantage (most important early)
+        gold_diff = data.get('gold_diff', 0)
+        gold_impact = gold_diff / 10000  # +1000 gold = +0.1 (10%)
+        
+        # Kill advantage
+        kill_diff = data.get('kill_diff', 0)
+        kill_impact = kill_diff * 0.03  # Each kill = 3%
+        
+        # CS advantage
+        cs_diff = data.get('cs_diff', 0)
+        cs_impact = cs_diff / 100  # +10 CS = +0.1 (10%)
+        
+        # Dragon advantage (minor early)
+        dragon_diff = data.get('dragon_diff', 0)
+        dragon_impact = dragon_diff * 0.05  # Each dragon = 5%
+        
+        # Combine impacts
+        total_impact = gold_impact + kill_impact + cs_impact + dragon_impact
+        
+        # Clamp to reasonable range [0.1, 0.9]
+        prob = base_prob + total_impact
+        prob = max(0.1, min(0.9, prob))
+        
         return prob

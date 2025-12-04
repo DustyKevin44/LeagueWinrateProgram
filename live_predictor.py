@@ -42,6 +42,12 @@ class LiveWinRatePredictor:
             # Make prediction
             win_prob = self.predictor.predict(**features)
             
+            # Warning for early game predictions
+            game_time = features.get('game_duration', 0)
+            if game_time < 300:  # Less than 5 minutes
+                print(f"[{timestamp}] WARNING: Early game ({game_time:.0f}s) - predictions may be unreliable")
+                print(f"[{timestamp}] Model trained on end-game data where tower_diff is critical")
+            
             print(f"[{timestamp}] Win Probability: {win_prob*100:.2f}%")
             
             return win_prob, "Updated just now"
