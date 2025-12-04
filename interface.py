@@ -1,8 +1,19 @@
+import sys
 import os
 import pandas as pd
 from model import RandomForestWinModel
 
-MODEL_PATH = os.path.join("data", "winprob_model.joblib")
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+MODEL_PATH = resource_path(os.path.join("data", "winprob_model.joblib"))
 FEATURES = [
     # Core stats
     'kill_diff', 'death_diff', 'assist_diff', 'gold_diff', 'cs_diff',

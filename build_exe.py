@@ -7,6 +7,64 @@ import os
 import shutil
 import subprocess
 import sys
+from data_loader import DataLoader
+from feature_engineer import DefaultFeatureEngineer
+from model import RandomForestWinModel, MODEL_PATH
+
+RANK_MAP = {
+    'iron': 1,
+    'bronze': 2,
+    'silver': 3,
+    'gold': 4,
+    'platinum': 5,
+    'emerald': 6,
+    'diamond': 7,
+    'master': 8,
+    'grandmaster': 9,
+    'challenger': 10
+}
+
+def retrain_model(target_rank):
+    """Retrain model on specific rank range (+/- 1)"""
+    rank_id = RANK_MAP.get(target_rank.lower())
+    if not rank_id:
+        print(f"Invalid rank: {target_rank}")
+        return False
+        
+    # Calculate range (+/- 1)
+    min_rank = max(1, rank_id - 1)
+    max_rank = min(10, rank_id + 1)
+    rank_ids = list(range(min_rank, max_rank + 1))
+    
+    print(f"\nRetraining model for {target_rank.capitalize()} (+/- 1 rank)...")
+    print(f"Including Rank IDs: {rank_ids}")
+    
+    try:
+        # Load data with filter
+        print("Loading filtered data...")
+        loader = DataLoader("data")
+        match_stats, team_stats, match_tbl, summoner_match = loader.load_match_stats(rank_ids=rank_ids)
+        
+        if len(match_stats) < 100:
+            print("Error: Not enough data for this rank range!")
+            return False
+            
+        # Engineer features
+        print("Engineering features...")
+        engineer = DefaultFeatureEngineer()
+        X, y = engineer.fit_transform(match_stats, team_stats, summoner_match, match_tbl)
+        
+        # Train model
+        print("Training model...")
+        model = RandomForestWinModel(MODEL_PATH)
+        model.train(X, y)
+        model.save()
+        print("[OK] Model retrained and saved!")
+        return True
+        
+    except Exception as e:
+        print(f"Error during training: {e}")
+        return False
 
 def build_exe():
     """Build the executable using PyInstaller"""
@@ -14,6 +72,18 @@ def build_exe():
     print("=" * 80)
     print("Building League Win Rate Predictor Executable")
     print("=" * 80)
+    
+    # Ask for rank
+    print("\nDo you want to build for a specific rank? (Leave empty for ALL ranks)")
+    print("Options: Iron, Bronze, Silver, Gold, Platinum, Emerald, Diamond, Master, Grandmaster, Challenger")
+    rank_input = input("Enter rank: ").strip()
+    
+    if rank_input:
+        if not retrain_model(rank_input):
+            print("Failed to retrain model. Aborting build.")
+            return
+    else:
+        print("Using existing model (trained on all ranks).")
     
     # Check if PyInstaller is installed
     try:
@@ -26,11 +96,18 @@ def build_exe():
     
     # Clean previous builds
     if os.path.exists("build"):
-        shutil.rmtree("build")
-        print("[OK] Cleaned build directory")
+        try:
+            shutil.rmtree("build")
+            print("[OK] Cleaned build directory")
+        except Exception as e:
+            print(f"Warning: Could not clean build directory: {e}")
+            
     if os.path.exists("dist"):
-        shutil.rmtree("dist")
-        print("[OK] Cleaned dist directory")
+        try:
+            shutil.rmtree("dist")
+            print("[OK] Cleaned dist directory")
+        except Exception as e:
+            print(f"Warning: Could not clean dist directory: {e}")
     
     # PyInstaller command
     cmd = [
@@ -42,7 +119,7 @@ def build_exe():
         
         # Exclude unused modules to reduce size
         "--exclude-module=matplotlib",
-        "--exclude-module=scipy",
+        # "--exclude-module=scipy",  # Required by sklearn!
         "--exclude-module=IPython",
         "--exclude-module=jupyter",
         "--exclude-module=notebook",
@@ -72,7 +149,11 @@ def build_exe():
         print("1. Send them the .exe file from the 'dist' folder")
         print("2. They just need to double-click it to run")
         print("3. Make sure they have a League game running!")
-        print("\nNote: The .exe is ~50-100MB due to bundled Python libraries")
+        
+        if rank_input:
+            print(f"\nNOTE: This version is optimized for {rank_input.capitalize()} (+/- 1 rank)!")
+            
+        print("\nNote: The .exe is ~70MB due to bundled Python libraries")
         
     except subprocess.CalledProcessError as e:
         print(f"\n[X] Build failed: {e}")
