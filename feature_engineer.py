@@ -26,7 +26,6 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
         )
         
         # Merge with match_tbl to get GameDuration
-        # match_tbl has MatchId, match_stats has MatchFk
         match_stats = match_stats.merge(
             match_tbl[['MatchId', 'GameDuration']],
             left_on='MatchFk', right_on='MatchId',
@@ -45,13 +44,9 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
         # Aggregate stats per team
         player_features = match_stats.groupby(['MatchFk','Team']).agg({
             'kills':'sum',
-            'deaths':'sum',
             'assists':'sum',
             'TotalGold':'sum',
             'MinionsKilled':'sum',
-            'DmgDealt':'sum',
-            'DmgTaken':'sum',
-            'visionScore':'sum',
             'DragonKills':'sum',
             'BaronKills':'sum'
         }).reset_index()
@@ -62,22 +57,14 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
 
         df = pd.DataFrame()
         df['kill_diff'] = blue['kills'] - red['kills']
-        df['death_diff'] = blue['deaths'] - red['deaths']
         df['assist_diff'] = blue['assists'] - red['assists']
         df['gold_diff'] = blue['TotalGold'] - red['TotalGold']
         df['cs_diff'] = blue['MinionsKilled'] - red['MinionsKilled']
-        df['dmg_dealt_diff'] = blue['DmgDealt'] - red['DmgDealt']
-        df['dmg_taken_diff'] = blue['DmgTaken'] - red['DmgTaken']
         df['dragon_diff'] = blue['DragonKills'] - red['DragonKills']
         df['baron_diff'] = blue['BaronKills'] - red['BaronKills']
         df['tower_diff'] = team_stats.set_index('MatchFk')['BlueTowerKills'] - team_stats.set_index('MatchFk')['RedTowerKills']
         
         # Game Duration
-        # We can take it from match_stats (which now has it merged)
-        # Since it's the same for all rows in a match, we can just take the first one per match
-        # Or simpler: use the merged column from match_stats. But match_stats is long (per player).
-        # We need it per match.
-        # Let's use match_tbl directly indexed by MatchId
         df['game_duration'] = match_tbl.set_index('MatchId')['GameDuration']
         
         df['blue_win'] = team_stats.set_index('MatchFk')['BlueWin']
@@ -85,12 +72,11 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
         # Drop rows with missing target/features
         df = df.dropna(subset=['blue_win'])
         
-        # Fill other NaNs with 0 (e.g. if some diffs are missing)
+        # Fill other NaNs with 0
         df = df.fillna(0)
         
-        features = ['kill_diff','death_diff','assist_diff','gold_diff','cs_diff',
-                    'dmg_dealt_diff','dmg_taken_diff','dragon_diff','baron_diff',
-                    'tower_diff','game_duration']
+        features = ['kill_diff','assist_diff','gold_diff','cs_diff',
+                    'dragon_diff','baron_diff','tower_diff','game_duration']
         X = df[features]
         y = df['blue_win']
         return X, y

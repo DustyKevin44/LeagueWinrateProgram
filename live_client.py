@@ -35,7 +35,8 @@ class LiveClientAPI:
         Extract features for win prediction from live game data.
         
         Returns dict with keys matching the trained model:
-        - kill_diff, tower_diff, dragon_diff, baron_diff, game_duration
+        - kill_diff, assist_diff, gold_diff, cs_diff,
+          dragon_diff, baron_diff, tower_diff, game_duration
         """
         try:
             # Get all players
@@ -45,9 +46,27 @@ class LiveClientAPI:
             blue_team = [p for p in all_players if p.get('team') == 'ORDER']
             red_team = [p for p in all_players if p.get('team') == 'CHAOS']
             
-            # Aggregate kills
+            # Aggregate player stats from scores
             blue_kills = sum(p.get('scores', {}).get('kills', 0) for p in blue_team)
             red_kills = sum(p.get('scores', {}).get('kills', 0) for p in red_team)
+            
+            blue_assists = sum(p.get('scores', {}).get('assists', 0) for p in blue_team)
+            red_assists = sum(p.get('scores', {}).get('assists', 0) for p in red_team)
+            
+            blue_cs = sum(p.get('scores', {}).get('creepScore', 0) for p in blue_team)
+            red_cs = sum(p.get('scores', {}).get('creepScore', 0) for p in red_team)
+            
+            # Calculate gold from item prices (more accurate than currentGold)
+            def calculate_team_gold(team):
+                total_gold = 0
+                for player in team:
+                    items = player.get('items', [])
+                    for item in items:
+                        total_gold += item.get('price', 0)
+                return total_gold
+            
+            blue_gold = calculate_team_gold(blue_team)
+            red_gold = calculate_team_gold(red_team)
             
             # Get events for objectives (towers, dragons, barons)
             events = game_data.get('events', {}).get('Events', [])
@@ -72,9 +91,12 @@ class LiveClientAPI:
             # Calculate diffs (MUST match training features exactly)
             features = {
                 'kill_diff': blue_kills - red_kills,
-                'tower_diff': blue_towers - red_towers,
+                'assist_diff': blue_assists - red_assists,
+                'gold_diff': blue_gold - red_gold,
+                'cs_diff': blue_cs - red_cs,
                 'dragon_diff': blue_dragons - red_dragons,
                 'baron_diff': blue_barons - red_barons,
+                'tower_diff': blue_towers - red_towers,
                 'game_duration': game_time
             }
             

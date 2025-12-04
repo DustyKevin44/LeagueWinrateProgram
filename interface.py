@@ -4,16 +4,14 @@ from model import RandomForestWinModel
 
 MODEL_PATH = os.path.join("data", "winprob_model.joblib")
 FEATURES = [
-    'kill_diff','death_diff','assist_diff','gold_diff','cs_diff',
-    'dmg_dealt_diff','dmg_taken_diff','dragon_diff','baron_diff',
-    'tower_diff','game_duration'
+    'kill_diff','assist_diff','gold_diff','cs_diff',
+    'dragon_diff','baron_diff','tower_diff','game_duration'
 ]
 
 class WinProbabilityInterface:
     def __init__(self):
         self.model = RandomForestWinModel(MODEL_PATH)
         if not self.model.load():
-            # If model not found, we can't really do much until trained
             print("Warning: Model not found at", MODEL_PATH)
 
     def predict(self, **kwargs):
@@ -26,10 +24,8 @@ class WinProbabilityInterface:
             'kill_diff': 0.000614,
             'cs_diff': 0.007751,
             'tower_diff': 0.000047,
-            'dmg_dealt_diff': 2.375109,
-            'dmg_taken_diff': 0, # Weak correlation or noisy
-            'assist_diff': 0.001, # Rough estimate (usually higher than kills)
-            'dragon_diff': 0.00005, # Very rough estimate
+            'assist_diff': 0.001,
+            'dragon_diff': 0.00005,
             'baron_diff': 0.00001
         }
         
@@ -63,13 +59,4 @@ class WinProbabilityInterface:
             print(f"Error predicting: {e}")
             return 0.5
 
-        if defaults_used:
-            # Only print if user didn't provide everything (optional, maybe too noisy?)
-            # Let's keep it but make it less verbose or only for debug. 
-            # For now, I'll comment it out to make the output cleaner as per user request for "accurate predictions" not logs.
-            # But user might want to know. I'll print a small note.
-            pass 
-            # print(f"Note: Used default values for {len(defaults_used)} missing features.")
-
         return prob
-
