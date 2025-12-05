@@ -16,12 +16,12 @@ def resource_path(relative_path):
 MODEL_PATH = resource_path(os.path.join("data", "winprob_model.joblib"))
 FEATURES = [
     # Core stats
-    'kill_diff', 'death_diff', 'assist_diff', 'gold_diff', 'cs_diff',
+    'kill_diff', 'assist_diff', 'gold_diff', 'cs_diff',
     'ward_score_diff', 'level_diff',
     # Objectives
     'dragon_diff', 'baron_diff', 'tower_diff', 'herald_diff', 'inhib_diff',
     # Derived features
-    'kda_diff', 'gold_per_kill', 'cs_per_min_diff', 'objective_score',
+    'gold_per_kill', 'cs_per_min_diff', 'objective_score',
     # Time context
     'game_duration'
 ]

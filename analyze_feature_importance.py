@@ -5,13 +5,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from data_loader import DataLoader
 from feature_engineer import DefaultFeatureEngineer
+from team_feature_engineer import TeamLevelFeatureEngineer
 
 def analyze_feature_importance():
     print("Loading data...")
     loader = DataLoader("data")
     match_stats, team_stats, match_tbl, summoner_match = loader.load_match_stats()
 
-    print("Engineering features...")
+    print("Engineering features (Reliable + Scaled)...")
     engineer = DefaultFeatureEngineer()
     X_full, y = engineer.fit_transform(match_stats, team_stats, summoner_match, match_tbl)
     

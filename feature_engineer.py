@@ -42,15 +42,17 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
         match_stats['Team'] = match_stats.apply(assign_team, axis=1)
 
         # Aggregate stats per team
+        # We also need to know the COUNT of players per team per match to scale correctly
         player_features = match_stats.groupby(['MatchFk','Team']).agg({
-            'kills':'sum',
+            'kills':'sum', # We use TeamStats for kills, so this is just for aux check
             'deaths':'sum',
             'assists':'sum',
             'TotalGold':'sum',
             'MinionsKilled':'sum',
             'DragonKills':'sum',
             'BaronKills':'sum',
-            'visionScore':'sum'
+            'visionScore':'sum',
+            'SummonerMatchFk': 'count' # Count number of observed data points
         }).reset_index()
 
         # Pivot BLUE vs RED
@@ -58,36 +60,73 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
         red  = player_features[player_features.Team=='RED'].set_index('MatchFk')
 
         df = pd.DataFrame()
-        # Core stats
-        df['kill_diff'] = blue['kills'] - red['kills']
-        df['death_diff'] = blue['deaths'] - red['deaths']
-        df['assist_diff'] = blue['assists'] - red['assists']
-        df['gold_diff'] = blue['TotalGold'] - red['TotalGold']
-        df['cs_diff'] = blue['MinionsKilled'] - red['MinionsKilled']
-        df['ward_score_diff'] = blue['visionScore'] - red['visionScore']
+        
+        # --- Reliability Fix ---
+        # Player data is incomplete. We use TeamStats for exact totals where possible.
+        # For player-specific stats (Gold, CS, Assists), we must SCALE the partial data 
+        # to estimate the full 5-player team total.
+        # Scaling Factor = 5 / observed_player_count
+        
+        # Avoid division by zero by replacing 0 with 1 (though count should > 0)
+        blue_scale = 5.0 / blue['SummonerMatchFk'].replace(0, 1)
+        red_scale  = 5.0 / red['SummonerMatchFk'].replace(0, 1)
+        
+        # Kills/Deaths from TeamStats (Exact)
+        ts_indexed = team_stats.set_index('MatchFk')
+        
+        # Validating overlap - only process matches present in ALL three (Blue players, Red players, TeamStats)
+        common_indices = blue.index.intersection(red.index).intersection(ts_indexed.index)
+        
+        blue = blue.loc[common_indices]
+        red = red.loc[common_indices]
+        ts_indexed = ts_indexed.loc[common_indices]
+        blue_scale = blue_scale.loc[common_indices]
+        red_scale = red_scale.loc[common_indices]
+        
+        df['kill_diff'] = ts_indexed['BlueKills'] - ts_indexed['RedKills']
+        # death_diff is redundant (it's just -kill_diff)
+        
+        # Scaled Estimates for Partial Data
+        # We estimate what the total would be if we had all 5 players
+        blue_gold_est = blue['TotalGold'] * blue_scale
+        red_gold_est  = red['TotalGold'] * red_scale
+        
+        blue_assists_est = blue['assists'] * blue_scale
+        red_assists_est  = red['assists'] * red_scale
+        
+        blue_cs_est = blue['MinionsKilled'] * blue_scale
+        red_cs_est  = red['MinionsKilled'] * red_scale
+        
+        blue_ward_est = blue['visionScore'] * blue_scale
+        red_ward_est  = red['visionScore'] * red_scale
+        
+        # Calculate Diffs using Scaled Estimates
+        df['assist_diff'] = blue_assists_est - red_assists_est
+        df['gold_diff'] = blue_gold_est - red_gold_est
+        df['cs_diff'] = blue_cs_est - red_cs_est
+        df['ward_score_diff'] = blue_ward_est - red_ward_est
         
         # Note: Level data not available in historical data, will use 0 as placeholder
         df['level_diff'] = 0
         
-        # Objectives
-        df['dragon_diff'] = blue['DragonKills'] - red['DragonKills']
-        df['baron_diff'] = blue['BaronKills'] - red['BaronKills']
-        df['tower_diff'] = team_stats.set_index('MatchFk')['BlueTowerKills'] - team_stats.set_index('MatchFk')['RedTowerKills']
-        df['herald_diff'] = team_stats.set_index('MatchFk')['BlueRiftHeraldKills'] - team_stats.set_index('MatchFk')['RedRiftHeraldKills']
+        # Objectives (Reliable from TeamStats)
+        df['dragon_diff'] = ts_indexed['BlueDragonKills'] - ts_indexed['RedDragonKills']
+        df['baron_diff'] = ts_indexed['BlueBaronKills'] - ts_indexed['RedBaronKills']
+        df['tower_diff'] = ts_indexed['BlueTowerKills'] - ts_indexed['RedTowerKills']
+        df['herald_diff'] = ts_indexed['BlueRiftHeraldKills'] - ts_indexed['RedRiftHeraldKills']
         
         # Inhibitors not in TeamMatchTbl, use 0 as placeholder
         df['inhib_diff'] = 0
         
         # Game Duration
-        df['game_duration'] = match_tbl.set_index('MatchId')['GameDuration']
+        df['game_duration'] = match_tbl.set_index('MatchId').loc[common_indices]['GameDuration']
         game_minutes = (df['game_duration'] / 60).clip(lower=1)
         
-        # Derived features (matching live_client.py)
-        blue_kda = (blue['kills'] + blue['assists']) / blue['deaths'].clip(lower=1)
-        red_kda = (red['kills'] + red['assists']) / red['deaths'].clip(lower=1)
-        df['kda_diff'] = blue_kda - red_kda
+        # Derived features
+        # kda_diff is largely redundant with kill_diff and assist_diff
         
-        df['gold_per_kill'] = df['gold_diff'] / df['kill_diff'].abs().clip(lower=1)
+        # Gold per kill - using scaled gold and reliable kills
+        df['gold_per_kill'] = df['gold_diff'] / df['kill_diff'].abs().replace(0, 1)
         df['cs_per_min_diff'] = df['cs_diff'] / game_minutes
         
         df['objective_score'] = (
@@ -98,7 +137,7 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
             df['inhib_diff'] * 2.5
         )
         
-        df['blue_win'] = team_stats.set_index('MatchFk')['BlueWin']
+        df['blue_win'] = ts_indexed['BlueWin']
 
         # Drop rows with missing target/features
         df = df.dropna(subset=['blue_win'])
@@ -108,12 +147,12 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
         
         features = [
             # Core stats
-            'kill_diff', 'death_diff', 'assist_diff', 'gold_diff', 'cs_diff',
+            'kill_diff', 'assist_diff', 'gold_diff', 'cs_diff',
             'ward_score_diff', 'level_diff',
             # Objectives
             'dragon_diff', 'baron_diff', 'tower_diff', 'herald_diff', 'inhib_diff',
             # Derived features
-            'kda_diff', 'gold_per_kill', 'cs_per_min_diff', 'objective_score',
+            'gold_per_kill', 'cs_per_min_diff', 'objective_score',
             # Time context
             'game_duration'
         ]

@@ -109,6 +109,14 @@ A real-time League of Legends win probability predictor using machine learning. 
 - **Output**: feature_importances_per_rank.csv
 - **Ranks Analyzed**: Iron to Challenger + All ranks combined
 
+### **analyze_feature_importance.py**
+- **Purpose**: Analyzes feature importance across different ranks
+- **Key Functions**:
+  - `analyze_ranks()`: Trains models for each rank tier
+  - `main()`: Generates feature importance comparison tables
+- **Output**: feature_importances_per_rank.csv
+- **Ranks Analyzed**: Iron to Challenger + All ranks combined
+
 ### **hyperparameter_tuning.py**
 - **Purpose**: Grid search for optimal Random Forest hyperparameters
 - **Key Features**:
