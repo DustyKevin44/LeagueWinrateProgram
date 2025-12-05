@@ -7,10 +7,30 @@ model_obj.load()
 
 # Test predictions
 test_cases = [
-    {'kill_diff': 0, 'assist_diff': 0, 'gold_diff': 1000, 'cs_diff': 0, 'dragon_diff': 0, 'baron_diff': 0, 'tower_diff': 0, 'game_duration': 1200},
-    {'kill_diff': 0, 'assist_diff': 0, 'gold_diff': -1000, 'cs_diff': 0, 'dragon_diff': 0, 'baron_diff': 0, 'tower_diff': 0, 'game_duration': 1200},
-    {'kill_diff': 5, 'assist_diff': 0, 'gold_diff': 2000, 'cs_diff': 20, 'dragon_diff': 1, 'baron_diff': 0, 'tower_diff': 2, 'game_duration': 1500},
-    {'kill_diff': -5, 'assist_diff': 0, 'gold_diff': -2000, 'cs_diff': -20, 'dragon_diff': -1, 'baron_diff': 0, 'tower_diff': -2, 'game_duration': 1500},
+    # Mid-game +1000 gold advantage
+    {'kill_diff': 2, 'assist_diff': 3, 'gold_diff': 1000, 'cs_diff': 15, 
+     'ward_score_diff': 5, 'level_diff': 0, 'dragon_diff': 0, 'baron_diff': 0, 
+     'tower_diff': 1, 'herald_diff': 0, 'inhib_diff': 0, 'game_duration': 1200},
+    
+    # Mid-game -1000 gold disadvantage
+    {'kill_diff': -2, 'assist_diff': -3, 'gold_diff': -1000, 'cs_diff': -15,
+     'ward_score_diff': -5, 'level_diff': 0, 'dragon_diff': 0, 'baron_diff': 0,
+     'tower_diff': -1, 'herald_diff': 0, 'inhib_diff': 0, 'game_duration': 1200},
+    
+    # Strong advantage
+    {'kill_diff': 5, 'assist_diff': 8, 'gold_diff': 2000, 'cs_diff': 20,
+     'ward_score_diff': 10, 'level_diff': 0, 'dragon_diff': 1, 'baron_diff': 0,
+     'tower_diff': 2, 'herald_diff': 1, 'inhib_diff': 0, 'game_duration': 1500},
+    
+    # Strong disadvantage
+    {'kill_diff': -5, 'assist_diff': -8, 'gold_diff': -2000, 'cs_diff': -20,
+     'ward_score_diff': -10, 'level_diff': 0, 'dragon_diff': -1, 'baron_diff': 0,
+     'tower_diff': -2, 'herald_diff': -1, 'inhib_diff': 0, 'game_duration': 1500},
+    
+    # Even game
+    {'kill_diff': 0, 'assist_diff': 0, 'gold_diff': 0, 'cs_diff': 0,
+     'ward_score_diff': 0, 'level_diff': 0, 'dragon_diff': 0, 'baron_diff': 0,
+     'tower_diff': 0, 'herald_diff': 0, 'inhib_diff': 0, 'game_duration': 1200},
 ]
 
 print("Testing model predictions:")
@@ -34,10 +54,9 @@ print(f"  Number of features: {model_obj.model.n_features_in_}")
 # Feature importances
 print("\nFeature importances:")
 feature_names = [
-    'kill_diff', 'death_diff', 'assist_diff', 'gold_diff', 'cs_diff',
+    'kill_diff', 'assist_diff', 'gold_diff', 'cs_diff',
     'ward_score_diff', 'level_diff', 'dragon_diff', 'baron_diff',
-    'tower_diff', 'herald_diff', 'inhib_diff', 'kda_diff',
-    'gold_per_kill', 'cs_per_min_diff', 'objective_score', 'game_duration'
+    'tower_diff', 'herald_diff', 'inhib_diff', 'game_duration'
 ]
 for name, importance in zip(feature_names, model_obj.model.feature_importances_):
     print(f"  {name:20s}: {importance:.4f}")

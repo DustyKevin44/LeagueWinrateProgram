@@ -122,21 +122,6 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
         df['game_duration'] = match_tbl.set_index('MatchId').loc[common_indices]['GameDuration']
         game_minutes = (df['game_duration'] / 60).clip(lower=1)
         
-        # Derived features
-        # kda_diff is largely redundant with kill_diff and assist_diff
-        
-        # Gold per kill - using scaled gold and reliable kills
-        df['gold_per_kill'] = df['gold_diff'] / df['kill_diff'].abs().replace(0, 1)
-        df['cs_per_min_diff'] = df['cs_diff'] / game_minutes
-        
-        df['objective_score'] = (
-            df['tower_diff'] * 1.0 +
-            df['dragon_diff'] * 1.5 +
-            df['herald_diff'] * 1.2 +
-            df['baron_diff'] * 3.0 +
-            df['inhib_diff'] * 2.5
-        )
-        
         df['blue_win'] = ts_indexed['BlueWin']
 
         # Drop rows with missing target/features
@@ -151,8 +136,6 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
             'ward_score_diff', 'level_diff',
             # Objectives
             'dragon_diff', 'baron_diff', 'tower_diff', 'herald_diff', 'inhib_diff',
-            # Derived features
-            'gold_per_kill', 'cs_per_min_diff', 'objective_score',
             # Time context
             'game_duration'
         ]

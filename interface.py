@@ -20,8 +20,6 @@ FEATURES = [
     'ward_score_diff', 'level_diff',
     # Objectives
     'dragon_diff', 'baron_diff', 'tower_diff', 'herald_diff', 'inhib_diff',
-    # Derived features
-    'gold_per_kill', 'cs_per_min_diff', 'objective_score',
     # Time context
     'game_duration'
 ]
