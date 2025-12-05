@@ -11,7 +11,7 @@ def test_models():
     match_stats, team_stats, match_tbl, summoner_match = loader.load_match_stats()
     
     engineer = DefaultFeatureEngineer()
-    X, y = engineer.fit_transform(match_stats, team_stats, summoner_match)
+    X, y = engineer.fit_transform(match_stats, team_stats, summoner_match, match_tbl)
     
     # Handle NaNs
     X = X.fillna(0)

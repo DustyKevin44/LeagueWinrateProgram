@@ -1,8 +1,7 @@
-import joblib
 import pandas as pd
-from model import RandomForestWinModel, MODEL_PATH, SCALER_PATH
+from model import RandomForestWinModel, MODEL_PATH
 
-# Load model and scaler
+# Load model
 model_obj = RandomForestWinModel(MODEL_PATH)
 model_obj.load()
 
@@ -24,13 +23,21 @@ for i, case in enumerate(test_cases, 1):
     print(f"  Features: gold_diff={case['gold_diff']}, kill_diff={case['kill_diff']}, tower_diff={case['tower_diff']}")
     print(f"  Win Probability: {prob*100:.2f}%")
 
-# Check scaler and model details
-scaler = joblib.load(SCALER_PATH)
+# Display model details
 print("\n" + "=" * 70)
-print("Scaler details:")
-print(f"  Mean: {scaler.mean_}")
-print(f"  Scale: {scaler.scale_}")
+print("Model details:")
+print(f"  Type: RandomForestClassifier")
+print(f"  Number of estimators: {model_obj.model.n_estimators}")
+print(f"  Max depth: {model_obj.model.max_depth}")
+print(f"  Number of features: {model_obj.model.n_features_in_}")
 
-print("\nModel coefficients:")
-print(f"  {model_obj.model.coef_[0]}")
-print(f"  Intercept: {model_obj.model.intercept_[0]}")
+# Feature importances
+print("\nFeature importances:")
+feature_names = [
+    'kill_diff', 'death_diff', 'assist_diff', 'gold_diff', 'cs_diff',
+    'ward_score_diff', 'level_diff', 'dragon_diff', 'baron_diff',
+    'tower_diff', 'herald_diff', 'inhib_diff', 'kda_diff',
+    'gold_per_kill', 'cs_per_min_diff', 'objective_score', 'game_duration'
+]
+for name, importance in zip(feature_names, model_obj.model.feature_importances_):
+    print(f"  {name:20s}: {importance:.4f}")
