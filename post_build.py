@@ -73,14 +73,24 @@ if __name__ == "__main__":
     print()
     print("=" * 80)
     
-    # Save to file for easy reference
-    with open("build_info.txt", "w") as f:
+    # Save to file for easy reference (append mode to keep history)
+    from datetime import datetime
+    
+    # Check if file exists to determine if we need a separator
+    file_exists = os.path.exists("build_info.txt")
+    
+    with open("build_info.txt", "a") as f:
+        # Add separator if file already has content
+        if file_exists:
+            f.write("\n" + "=" * 80 + "\n\n")
+        
         f.write(f"Build Information\n")
-        f.write(f"================\n\n")
+        f.write(f"=================\n\n")
+        f.write(f"Build Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"File: {exe_path}\n")
         f.write(f"Size: {file_size:.2f} MB\n")
         f.write(f"SHA256: {file_hash}\n")
-        f.write(f"\nCreated: {os.path.getctime(exe_path)}\n")
+        f.write(f"File Created: {datetime.fromtimestamp(os.path.getctime(exe_path)).strftime('%Y-%m-%d %H:%M:%S')}\n")
     
     print("Build info saved to: build_info.txt")
     print()
