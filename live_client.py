@@ -149,6 +149,17 @@ class LiveClientAPI:
             for p in red_team:
                 red_names |= self.collect_player_names(p)
 
+            # ------------ DETECT ACTIVE PLAYER'S TEAM ------------
+            # CRITICAL: Model always predicts from Blue's perspective
+            # If active player is Red, we need to invert features!
+            
+            active_player_name = game_data.get("activePlayer", {}).get("summonerName", "")
+            player_is_blue = self.belongs_to_team(active_player_name, blue_names)
+            player_is_red = self.belongs_to_team(active_player_name, red_names)
+            
+            # Default to blue if we can't determine (shouldn't happen)
+            if not player_is_blue and not player_is_red:
+                player_is_blue = True
 
             # ------------ TEAM STAT TOTALS ------------
 
@@ -229,13 +240,14 @@ class LiveClientAPI:
                         red_first_blood = 1
 
 
-            # ------------ DERIVED FEATURES ------------
+            # ------------ GAME TIME ------------
 
             game_time = game_data.get("gameData", {}).get("gameTime", 0)
-            minutes = max(game_time / 60, 1)
 
+            # ------------ FEATURE DIFFS (from active player's perspective) ------------
+            
+            # Calculate differences (Blue - Red)
             kill_diff    = blue_kills - red_kills
-            death_diff   = blue_deaths - red_deaths
             assist_diff  = blue_assists - red_assists
             gold_diff    = blue_gold - red_gold
             cs_diff      = blue_cs - red_cs
@@ -247,44 +259,49 @@ class LiveClientAPI:
             tower_diff   = blue_towers - red_towers
             herald_diff  = blue_heralds - red_heralds
             inhib_diff   = blue_inhibs - red_inhibs
+            
+            # CRITICAL FIX: If player is on RED team, invert all differentials!
+            # The model was trained to predict Blue's win probability
+            # So if player is Red, we need to flip the perspective
+            if player_is_red:
+                kill_diff = -kill_diff
+                assist_diff = -assist_diff
+                gold_diff = -gold_diff
+                cs_diff = -cs_diff
+                ward_diff = -ward_diff
+                level_diff = -level_diff
+                dragon_diff = -dragon_diff
+                baron_diff = -baron_diff
+                tower_diff = -tower_diff
+                herald_diff = -herald_diff
+                inhib_diff = -inhib_diff
 
-            blue_kda = (blue_kills + blue_assists) / max(blue_deaths, 1)
-            red_kda  = (red_kills + red_assists) / max(red_deaths, 1)
-            kda_diff = blue_kda - red_kda
-
-            gold_per_kill = gold_diff / max(abs(kill_diff), 1)
-            cs_per_min_diff = cs_diff / minutes
-
-            objective_score = (
-                tower_diff * 1
-                + dragon_diff * 1.5
-                + herald_diff * 1.2
-                + baron_diff * 3
-                + inhib_diff * 2.5
-            )
-
-            return {
+            # Return ONLY features that the model was trained on
+            # Plus diagnostic info
+            features = {
+                # Core stats
                 "kill_diff": kill_diff,
-                "death_diff": death_diff,
                 "assist_diff": assist_diff,
                 "gold_diff": gold_diff,
                 "cs_diff": cs_diff,
                 "ward_score_diff": ward_diff,
                 "level_diff": level_diff,
-
+                
+                # Objectives
                 "dragon_diff": dragon_diff,
                 "baron_diff": baron_diff,
                 "tower_diff": tower_diff,
                 "herald_diff": herald_diff,
                 "inhib_diff": inhib_diff,
-
-                "kda_diff": kda_diff,
-                "gold_per_kill": gold_per_kill,
-                "cs_per_min_diff": cs_per_min_diff,
-                "objective_score": objective_score,
-
-                "game_duration": game_time
+                
+                # Time context
+                "game_duration": game_time,
+                
+                # Diagnostic (not used by model, just for debugging)
+                "player_team": "BLUE" if player_is_blue else "RED"
             }
+            
+            return features
 
         except Exception as e:
             raise Exception(f"Failed to extract features: {e}")

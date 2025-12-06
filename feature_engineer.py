@@ -130,6 +130,48 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
         # Fill other NaNs with 0
         df = df.fillna(0)
         
+        # ============ DERIVED INTERACTION FEATURES ============
+        # These capture the concept of "tower-taking capability"
+        # Instead of heuristics, let the model LEARN these relationships from data!
+        
+        # 1. Combat Power: Overall fighting strength
+        # Normalized to similar scales so model can weight them
+        df['combat_power'] = (
+            df['kill_diff'] / 10.0 +           # Kills normalized
+            df['gold_diff'] / 3000.0 +         # Gold normalized  
+            df['level_diff'] / 10.0 +          # Levels normalized
+            df['baron_diff'] * 3.0 +           # Baron is huge
+            df['dragon_diff'] * 0.5            # Dragons help
+        )
+        
+        # 2. Tower-Combat Mismatch: Do towers match combat strength?
+        # Positive = have towers but weak (bad)
+        # Negative = strong but lack towers (can recover)
+        df['tower_combat_mismatch'] = df['tower_diff'] - df['combat_power']
+        
+        # 3. Push Capability: Can you actually take objectives?
+        # Combines combat power with objective control
+        df['push_capability'] = (
+            df['combat_power'] + 
+            df['baron_diff'] * 2.0 +           # Baron enables pushing
+            df['herald_diff'] * 1.0            # Herald helps early
+        )
+        
+        # 4. Economic Advantage: Gold/CS combined (scales better)
+        df['economic_advantage'] = (
+            df['gold_diff'] / 1000.0 +         # Gold per 1k
+            df['cs_diff'] / 50.0               # CS per 50
+        )
+        
+        # 5. Objective Control: Overall map control
+        df['objective_control'] = (
+            df['dragon_diff'] * 1.0 +
+            df['baron_diff'] * 3.0 +
+            df['tower_diff'] * 2.0 +
+            df['herald_diff'] * 1.5 +
+            df['inhib_diff'] * 4.0
+        )
+        
         features = [
             # Core stats
             'kill_diff', 'assist_diff', 'gold_diff', 'cs_diff',
@@ -137,7 +179,10 @@ class DefaultFeatureEngineer(FeatureEngineerBase):
             # Objectives
             'dragon_diff', 'baron_diff', 'tower_diff', 'herald_diff', 'inhib_diff',
             # Time context
-            'game_duration'
+            'game_duration',
+            # NEW: Derived interaction features (data-driven, not heuristic!)
+            'combat_power', 'tower_combat_mismatch', 'push_capability',
+            'economic_advantage', 'objective_control'
         ]
         X = df[features]
         y = df['blue_win']

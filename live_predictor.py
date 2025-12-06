@@ -35,9 +35,18 @@ class LiveWinRatePredictor:
             game_data = self.api_client.get_all_game_data()
             features = self.api_client.extract_features(game_data)
             
-            print(f"[{timestamp}] Features extracted:")
+            # Extract team info for display (not used in prediction)
+            player_team = features.pop("player_team", "UNKNOWN")
+            
+            print(f"[{timestamp}] You are on: {player_team} TEAM")
+            print(f"[{timestamp}] Features extracted (from YOUR perspective):")
             for key, value in features.items():
-                print(f"  {key}: {value}")
+                # Add indicator for positive/negative
+                if key != 'game_duration':
+                    indicator = "↑" if value > 0 else ("↓" if value < 0 else "=")
+                    print(f"  {key}: {value} {indicator}")
+                else:
+                    print(f"  {key}: {value}")
             
             # Make prediction
             win_prob = self.predictor.predict(**features)
@@ -48,7 +57,14 @@ class LiveWinRatePredictor:
                 print(f"[{timestamp}] WARNING: Early game ({game_time:.0f}s) - predictions may be unreliable")
                 print(f"[{timestamp}] Model trained on end-game data where tower_diff is critical")
             
-            print(f"[{timestamp}] Win Probability: {win_prob*100:.2f}%")
+            # Show interpretation
+            print(f"[{timestamp}] Win Probability: {win_prob*100:.2f}%", end="")
+            if win_prob > 0.70:
+                print(" (WINNING)")
+            elif win_prob < 0.30:
+                print(" (LOSING)")
+            else:
+                print(" (CLOSE GAME)")
             
             return win_prob, "Updated just now"
             
