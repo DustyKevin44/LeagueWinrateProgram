@@ -109,13 +109,20 @@ def build_exe():
         except Exception as e:
             print(f"Warning: Could not clean dist directory: {e}")
     
-    # PyInstaller command
+    # PyInstaller command - optimized to reduce antivirus false positives
     cmd = [
         "pyinstaller",
         "--onefile",  # Single executable file
         "--console",  # Show console window for debugging
         "--name=LeagueWinPredictor",
-        "--add-data=data/winprob_model.joblib;data",  # Include the model
+        "--clean",  # Clean PyInstaller cache before building (important!)
+        "--noupx",  # Don't use UPX compression (MAJOR antivirus trigger!)
+        
+        # Add version info to make exe look legitimate
+        "--version-file=version_info.txt",  # We'll create this file
+        
+        # Include the model
+        "--add-data=data/winprob_model.joblib;data",
         
         # Exclude unused modules to reduce size
         "--exclude-module=matplotlib",
